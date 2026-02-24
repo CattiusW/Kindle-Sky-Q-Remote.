@@ -7,6 +7,13 @@ IP=$1
 CMD_NAME=$2
 PORT=49160
 
+# Validate inputs
+if [ -z "$IP" ] || [ -z "$CMD_NAME" ]; then
+    echo "Usage: ./sky.sh <IP> <COMMAND> [--legacy]"
+    echo "Example: ./sky.sh 192.168.1.50 home"
+    exit 1
+fi
+
 if [ "$3" = "--legacy" ]; then
     PORT=5900
 fi
@@ -27,7 +34,7 @@ B7=$((224 + CODE / 16))
 B8=$((CODE % 16))
 
 # Create temp file to capture handshake
-TEMP=$(mktemp)
+TEMP=$(mktemp) || { echo "Error: Failed to create temp file"; exit 1; }
 
 # Send data and close connection properly
 {
@@ -35,10 +42,10 @@ TEMP=$(mktemp)
     dd bs=1 count=12 2>/dev/null | tee "$TEMP"
     
     # Send command press (Byte 2 = 1)
-    printf "\x04\x01\x00\x00\x00\x00\x$(printf '%x' $B7)\x$(printf '%x' $B8)"
+    printf "\\x04\\x01\\x00\\x00\\x00\\x00\\x$(printf '%02x' $B7)\\x$(printf '%02x' $B8)"
     
     # Send command release (Byte 2 = 0)
-    printf "\x04\x00\x00\x00\x00\x00\x$(printf '%x' $B7)\x$(printf '%x' $B8)"
-} | nc -w 2 $IP $PORT
+    printf "\\x04\\x00\\x00\\x00\\x00\\x00\\x$(printf '%02x' $B7)\\x$(printf '%02x' $B8)"
+} | nc -w 2 "$IP" "$PORT" || { echo "Error: Failed to connect to $IP:$PORT"; exit 1; }
 
 rm -f "$TEMP"
